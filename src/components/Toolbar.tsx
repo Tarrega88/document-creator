@@ -10,7 +10,8 @@ export function Toolbar() {
       dispatch({
         type: 'LOAD',
         sections: file.sections,
-        templates: file.templates,
+        importedTemplates: file.templates,
+        importedFolders: file.folders,
         globalStyles: file.globalStyles,
         sheetHeight: file.sheetHeight,
         marginHeight: file.marginHeight,

@@ -12,7 +12,7 @@ export function Sidebar() {
       <CollapsiblePanel title="Sections">
         <SectionPalette />
       </CollapsiblePanel>
-      <CollapsiblePanel title="Templates">
+      <CollapsiblePanel title="Templates" className="panel-fill">
         <TemplateArea />
       </CollapsiblePanel>
     </aside>

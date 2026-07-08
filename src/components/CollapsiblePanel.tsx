@@ -3,13 +3,14 @@ import { useState, type ReactNode } from 'react'
 interface Props {
   title: string
   defaultOpen?: boolean
+  className?: string
   children: ReactNode
 }
 
-export function CollapsiblePanel({ title, defaultOpen = true, children }: Props) {
+export function CollapsiblePanel({ title, defaultOpen = true, className, children }: Props) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="panel">
+    <div className={`panel${className ? ` ${className}` : ''}${open ? ' open' : ''}`}>
       <button
         type="button"
         className="panel-header"

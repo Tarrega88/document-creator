@@ -1,16 +1,23 @@
-import type { DocumentFile, DocumentState, Section, Template } from '../types'
+import type {
+  DocumentFile,
+  DocumentState,
+  Section,
+  Template,
+  TemplateFolder,
+} from '../types'
 import {
   DEFAULT_GLOBAL_STYLES,
   DEFAULT_MARGIN_HEIGHT,
   DEFAULT_SHEET_HEIGHT,
 } from '../data/palette'
 
-/** Serialize the current document + templates to a downloadable JSON file. */
+/** Serialize the current document to a downloadable JSON file. Templates and
+ *  folders are a global library (persisted separately), so they are not part of
+ *  a document file. */
 export function exportJson(state: DocumentState): void {
   const file: DocumentFile = {
     version: 1,
     sections: state.sections,
-    templates: state.templates,
     globalStyles: state.globalStyles,
     sheetHeight: state.sheetHeight,
     marginHeight: state.marginHeight,
@@ -25,8 +32,10 @@ export function exportJson(state: DocumentState): void {
 }
 
 /** Normalize templates from any file version. Templates used to hold a single
- *  `section`; they now hold a `sections` array. */
-function normalizeTemplates(raw: unknown): Template[] {
+ *  `section`; they now hold a `sections` array. Templates predating folders
+ *  have no `folderId`, so they default to the root list. Any template pointing
+ *  at a folder that no longer exists is also pushed back to the root. */
+export function normalizeTemplates(raw: unknown, folderIds: Set<string>): Template[] {
   if (!Array.isArray(raw)) return []
   return raw
     .map((t) => {
@@ -37,9 +46,25 @@ function normalizeTemplates(raw: unknown): Template[] {
           ? [template.section]
           : []
       if (!template.id || sections.length === 0) return null
-      return { id: template.id, name: template.name ?? 'template', sections }
+      const folderId =
+        typeof template.folderId === 'string' && folderIds.has(template.folderId)
+          ? template.folderId
+          : null
+      return { id: template.id, name: template.name ?? 'template', sections, folderId }
     })
     .filter((t): t is Template => t !== null)
+}
+
+/** Normalize folders from any file version. Older files have no folders. */
+export function normalizeFolders(raw: unknown): TemplateFolder[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((f) => {
+      const folder = f as Partial<TemplateFolder>
+      if (!folder.id) return null
+      return { id: folder.id, name: folder.name ?? 'Folder' }
+    })
+    .filter((f): f is TemplateFolder => f !== null)
 }
 
 /** Read a JSON file chosen by the user and return the parsed document. */
@@ -56,10 +81,13 @@ export function importJson(): Promise<DocumentFile> {
         try {
           const data = JSON.parse(String(reader.result)) as DocumentFile
           if (!Array.isArray(data.sections)) throw new Error('Invalid document file')
+          const folders = normalizeFolders(data.folders)
+          const folderIds = new Set(folders.map((f) => f.id))
           resolve({
             version: 1,
             sections: data.sections,
-            templates: normalizeTemplates(data.templates),
+            templates: normalizeTemplates(data.templates, folderIds),
+            folders,
             globalStyles: data.globalStyles ?? DEFAULT_GLOBAL_STYLES,
             sheetHeight:
               typeof data.sheetHeight === 'number' ? data.sheetHeight : DEFAULT_SHEET_HEIGHT,

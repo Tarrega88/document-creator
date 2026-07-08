@@ -23,6 +23,13 @@ export interface Template {
   id: string
   name: string
   sections: Section[]
+  /** Id of the folder this template lives in, or null for the root list. */
+  folderId: string | null
+}
+
+export interface TemplateFolder {
+  id: string
+  name: string
 }
 
 /** What the user currently has selected: either a section on the canvas or a
@@ -34,17 +41,21 @@ export type Selection =
 export interface DocumentState {
   sections: Section[]
   templates: Template[]
+  folders: TemplateFolder[]
   selected: Selection | null
   globalStyles: CSSProperties
   sheetHeight: number
   marginHeight: number
 }
 
-/** Shape of the JSON that gets exported / imported. */
+/** Shape of the JSON that gets exported / imported. Documents hold only
+ *  content; `templates`/`folders` are optional and only read from older files
+ *  (the template library is now global, persisted separately). */
 export interface DocumentFile {
   version: 1
   sections: Section[]
-  templates: Template[]
+  templates?: Template[]
+  folders?: TemplateFolder[]
   globalStyles: CSSProperties
   sheetHeight: number
   marginHeight: number

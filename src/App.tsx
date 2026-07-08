@@ -85,8 +85,20 @@ function Workspace() {
   const computeIndicator = (e: DragOverEvent | DragEndEvent): DropIndicator | null => {
     const a = e.active.data.current as DragData | undefined
     const o = e.over?.data.current as DropData | undefined
-    if (!a || !o || a.kind === 'template-section') return null
-    if (o.kind === 'template-area' || o.kind === 'template' || o.kind === 'template-section')
+    if (
+      !a ||
+      !o ||
+      a.kind === 'template-section' ||
+      a.kind === 'template' ||
+      a.kind === 'template-folder'
+    )
+      return null
+    if (
+      o.kind === 'template-area' ||
+      o.kind === 'template' ||
+      o.kind === 'template-section' ||
+      o.kind === 'template-folder'
+    )
       return null
 
     let candidate: DropIndicator | null = null
@@ -154,9 +166,51 @@ function Workspace() {
       return
     }
 
+    // Reordering a template folder.
+    if (a.kind === 'template-folder') {
+      if (o?.kind !== 'template-folder' || o.id === a.id) return
+      const targetIndex = state.folders.findIndex((f) => f.id === o.id)
+      if (targetIndex === -1) return
+      const overRect = e.over?.rect
+      const activator = e.activatorEvent as PointerEvent
+      const pointerY = (activator?.clientY ?? 0) + e.delta.y
+      const after = overRect ? pointerY > overRect.top + overRect.height / 2 : false
+      dispatch({
+        type: 'MOVE_FOLDER',
+        id: a.id,
+        index: after ? targetIndex + 1 : targetIndex,
+      })
+      return
+    }
+
+    // Moving a whole template into a folder or back out to the root list.
+    if (a.kind === 'template') {
+      if (o?.kind === 'template-folder') {
+        dispatch({ type: 'MOVE_TEMPLATE_TO_FOLDER', templateId: a.id, folderId: o.id })
+      } else if (o?.kind === 'template-area') {
+        dispatch({ type: 'MOVE_TEMPLATE_TO_FOLDER', templateId: a.id, folderId: null })
+      } else if (o?.kind === 'template' && o.id !== a.id) {
+        // Dropped onto another template: adopt that template's folder.
+        const target = state.templates.find((t) => t.id === o.id)
+        if (target)
+          dispatch({
+            type: 'MOVE_TEMPLATE_TO_FOLDER',
+            templateId: a.id,
+            folderId: target.folderId,
+          })
+      }
+      return
+    }
+
     if (a.kind === 'palette-section') {
       if (o?.kind === 'template-area') {
         dispatch({ type: 'ADD_TEMPLATE', sections: [createSection(a.sectionType)] })
+      } else if (o?.kind === 'template-folder') {
+        dispatch({
+          type: 'ADD_TEMPLATE',
+          sections: [createSection(a.sectionType)],
+          folderId: o.id,
+        })
       } else if (o?.kind === 'template' || o?.kind === 'template-section') {
         dispatch({
           type: 'ADD_SECTION_TO_TEMPLATE',
@@ -181,6 +235,9 @@ function Workspace() {
       if (o?.kind === 'template-area') {
         const source = findSection(state.sections, a.id)
         if (source) dispatch({ type: 'ADD_TEMPLATE', sections: [source] })
+      } else if (o?.kind === 'template-folder') {
+        const source = findSection(state.sections, a.id)
+        if (source) dispatch({ type: 'ADD_TEMPLATE', sections: [source], folderId: o.id })
       } else if (o?.kind === 'template' || o?.kind === 'template-section') {
         const source = findSection(state.sections, a.id)
         if (source)

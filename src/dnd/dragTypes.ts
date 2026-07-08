@@ -6,6 +6,8 @@ export type DragData =
   | { kind: 'palette-section'; sectionType: SectionType; label: string }
   | { kind: 'section'; id: string; isContainer: boolean }
   | { kind: 'template-section'; templateId: string; sectionId: string; label: string }
+  | { kind: 'template'; id: string; label: string }
+  | { kind: 'template-folder'; id: string; label: string }
 
 export type DropData =
   | { kind: 'canvas-root' }
@@ -13,3 +15,4 @@ export type DropData =
   | { kind: 'template-area' }
   | { kind: 'template'; id: string }
   | { kind: 'template-section'; templateId: string; sectionId: string }
+  | { kind: 'template-folder'; id: string }

@@ -1,5 +1,12 @@
 import type { CSSProperties } from 'react'
-import type { DocumentState, Section, SectionType, Selection, Template } from '../types'
+import type {
+  DocumentState,
+  Section,
+  SectionType,
+  Selection,
+  Template,
+  TemplateFolder,
+} from '../types'
 import {
   createSection,
   DEFAULT_GLOBAL_STYLES,
@@ -16,8 +23,13 @@ export type Action =
   | { type: 'UPDATE_STYLE'; id: string; style: CSSProperties }
   | { type: 'DELETE_SECTION'; id: string }
   | { type: 'SELECT'; selection: Selection | null }
-  | { type: 'ADD_TEMPLATE'; sections: Section[]; name?: string }
+  | { type: 'ADD_TEMPLATE'; sections: Section[]; name?: string; folderId?: string | null }
   | { type: 'ADD_SECTION_TO_TEMPLATE'; templateId: string; section: Section }
+  | { type: 'MOVE_TEMPLATE_TO_FOLDER'; templateId: string; folderId: string | null }
+  | { type: 'ADD_FOLDER'; name?: string }
+  | { type: 'RENAME_FOLDER'; id: string; name: string }
+  | { type: 'DELETE_FOLDER'; id: string }
+  | { type: 'MOVE_FOLDER'; id: string; index: number }
   | { type: 'REMOVE_TEMPLATE_SECTION'; templateId: string; sectionId: string }
   | { type: 'MOVE_TEMPLATE_SECTION'; templateId: string; sectionId: string; index: number }
   | { type: 'APPLY_STYLE_TO_TEMPLATE'; id: string; sectionId: string; style: CSSProperties }
@@ -30,7 +42,8 @@ export type Action =
   | {
       type: 'LOAD'
       sections: Section[]
-      templates: Template[]
+      importedTemplates?: Template[]
+      importedFolders?: TemplateFolder[]
       globalStyles: CSSProperties
       sheetHeight: number
       marginHeight: number
@@ -40,6 +53,7 @@ export type Action =
 export const initialState: DocumentState = {
   sections: [],
   templates: [],
+  folders: [],
   selected: null,
   globalStyles: DEFAULT_GLOBAL_STYLES,
   sheetHeight: DEFAULT_SHEET_HEIGHT,
@@ -216,6 +230,7 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
         id: uid(),
         name: action.name ?? `${action.sections[0]?.type ?? 'empty'} template`,
         sections,
+        folderId: action.folderId ?? null,
       }
       return { ...state, templates: [...state.templates, template] }
     }
@@ -299,25 +314,84 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
             ? null
             : state.selected,
       }
+    case 'MOVE_TEMPLATE_TO_FOLDER':
+      return {
+        ...state,
+        templates: state.templates.map((t) =>
+          t.id === action.templateId ? { ...t, folderId: action.folderId } : t,
+        ),
+      }
+    case 'ADD_FOLDER': {
+      const folder: TemplateFolder = { id: uid(), name: action.name ?? 'New folder' }
+      return { ...state, folders: [...state.folders, folder] }
+    }
+    case 'RENAME_FOLDER':
+      return {
+        ...state,
+        folders: state.folders.map((f) =>
+          f.id === action.id ? { ...f, name: action.name } : f,
+        ),
+      }
+    case 'DELETE_FOLDER':
+      return {
+        ...state,
+        folders: state.folders.filter((f) => f.id !== action.id),
+        // Templates in a deleted folder fall back to the root list.
+        templates: state.templates.map((t) =>
+          t.folderId === action.id ? { ...t, folderId: null } : t,
+        ),
+      }
+    case 'MOVE_FOLDER': {
+      const from = state.folders.findIndex((f) => f.id === action.id)
+      if (from === -1) return state
+      const folder = state.folders[from]
+      const without = state.folders.filter((f) => f.id !== action.id)
+      const index = from < action.index ? action.index - 1 : action.index
+      without.splice(index, 0, folder)
+      return { ...state, folders: without }
+    }
     case 'UPDATE_GLOBAL_STYLE':
       return { ...state, globalStyles: { ...state.globalStyles, ...action.style } }
     case 'UPDATE_SHEET_HEIGHT':
       return { ...state, sheetHeight: action.height }
     case 'UPDATE_MARGIN_HEIGHT':
       return { ...state, marginHeight: action.height }
-    case 'LOAD':
+    case 'LOAD': {
+      // Templates + folders are a global library, not part of a document. Keep
+      // the current library, but merge in any items from an imported file we
+      // don't already have (migration for documents saved before templates
+      // became global).
+      const existingFolderIds = new Set(state.folders.map((f) => f.id))
+      const folders = [
+        ...state.folders,
+        ...(action.importedFolders ?? []).filter((f) => !existingFolderIds.has(f.id)),
+      ]
+      const folderIds = new Set(folders.map((f) => f.id))
+      const existingTemplateIds = new Set(state.templates.map((t) => t.id))
+      const templates = [
+        ...state.templates,
+        ...(action.importedTemplates ?? [])
+          .filter((t) => !existingTemplateIds.has(t.id))
+          .map((t) => ({
+            ...t,
+            folderId: t.folderId && folderIds.has(t.folderId) ? t.folderId : null,
+          })),
+      ]
       return {
         sections: action.sections,
-        templates: action.templates,
+        templates,
+        folders,
         globalStyles: action.globalStyles,
         sheetHeight: action.sheetHeight,
         marginHeight: action.marginHeight,
         selected: null,
       }
+    }
     case 'CLEAR':
       return {
         ...initialState,
         templates: state.templates,
+        folders: state.folders,
         globalStyles: state.globalStyles,
         sheetHeight: state.sheetHeight,
         marginHeight: state.marginHeight,
