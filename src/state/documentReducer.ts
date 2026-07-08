@@ -69,6 +69,21 @@ function toTemplateSection(section: Section): Section {
   }
 }
 
+/** Clone a template section for placement on the canvas: keep the template's
+ *  styles/structure but fill in the type's default placeholder content so the
+ *  instantiated sections are visible and editable. */
+function withDefaultContent(section: Section): Section {
+  const fresh = createSection(section.type)
+  return {
+    ...section,
+    id: uid(),
+    content: fresh.content,
+    src: fresh.src,
+    styles: { ...section.styles },
+    children: section.children.map(withDefaultContent),
+  }
+}
+
 /** Recursively apply `fn` to the section matching `id`, rebuilding the tree. */
 function mapSection(
   sections: Section[],
@@ -259,7 +274,7 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
     case 'INSTANTIATE_TEMPLATE': {
       const template = state.templates.find((t) => t.id === action.id)
       if (!template) return state
-      const sections = template.sections.map(cloneWithNewIds)
+      const sections = template.sections.map(withDefaultContent)
       const last = sections[sections.length - 1]
       return {
         ...state,

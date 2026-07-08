@@ -13,6 +13,7 @@ export const SECTION_DEFS: SectionDef[] = [
   { type: 'heading', label: 'Heading', icon: 'H' },
   { type: 'subheader', label: 'Subheader', icon: 'h' },
   { type: 'text', label: 'Text', icon: '¶' },
+  { type: 'link', label: 'Link', icon: '↗' },
   { type: 'image', label: 'Image', icon: '▦' },
   { type: 'divider', label: 'Divider', icon: '—' },
   { type: 'spacer', label: 'Spacer', icon: '↕' },
@@ -28,11 +29,11 @@ export const DEFAULT_GLOBAL_STYLES: CSSProperties = {
   color: '#1a1a1a',
 }
 
-/** Default printed sheet height in millimetres (A4). */
-export const DEFAULT_SHEET_HEIGHT = 297
+/** Default printed sheet height in millimetres (US Letter). */
+export const DEFAULT_SHEET_HEIGHT = 279
 
-/** Default top/bottom page margin in millimetres (1 inch). */
-export const DEFAULT_MARGIN_HEIGHT = 25.4
+/** Default top/bottom page margin in millimetres (0.75 inch). */
+export const DEFAULT_MARGIN_HEIGHT = 19.05
 
 /** Build a fresh section with sensible defaults for its type. */
 export function createSection(type: SectionType): Section {
@@ -48,6 +49,8 @@ export function createSection(type: SectionType): Section {
         content:
           'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Click to edit this text.',
       }
+    case 'link':
+      return { ...base, content: 'Link text', src: 'https://example.com' }
     case 'divider':
       return { ...base }
     case 'spacer':

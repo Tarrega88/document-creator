@@ -4,6 +4,7 @@ export type SectionType =
   | 'text'
   | 'heading'
   | 'subheader'
+  | 'link'
   | 'image'
   | 'divider'
   | 'spacer'

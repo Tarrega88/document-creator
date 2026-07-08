@@ -33,6 +33,35 @@ function EditableText({
   )
 }
 
+/** Restrict hrefs to safe schemes to avoid javascript:/data: URI injection.
+ *  Schemeless values are assumed to be https URLs. */
+function safeHref(url: string): string {
+  const trimmed = url.trim()
+  if (!trimmed) return '#'
+  if (/^(https?:|mailto:)/i.test(trimmed)) return trimmed
+  if (/^[a-z][a-z0-9+.-]*:/i.test(trimmed)) return '#'
+  return `https://${trimmed}`
+}
+
+/** A block-level hyperlink. Rendered as a plain (non-editable) anchor so that
+ *  it becomes a clickable link annotation in the printed/exported PDF —
+ *  Chromium omits link annotations for anchors inside editable content. The
+ *  label text and URL are edited from the inspector. */
+function LinkSection({ section }: { section: Section }) {
+  return (
+    <a
+      className="doc-link"
+      style={section.styles}
+      href={safeHref(section.src)}
+      target="_blank"
+      rel="noopener noreferrer"
+      onClick={(e) => e.preventDefault()}
+    >
+      {section.content || 'Link'}
+    </a>
+  )
+}
+
 /** An image (or its placeholder) that can be resized by dragging a corner
  *  handle. Resizing sets an explicit pixel width/height on the section. */
 function ImageSection({ section }: { section: Section }) {
@@ -96,6 +125,8 @@ function SectionContent({ section }: { section: Section }) {
       return <EditableText section={section} tag="h3" />
     case 'text':
       return <EditableText section={section} tag="p" />
+    case 'link':
+      return <LinkSection section={section} />
     case 'divider':
       return <hr className="doc-divider" style={section.styles} />
     case 'spacer':

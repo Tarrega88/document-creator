@@ -103,8 +103,9 @@ export function Inspector() {
       {!isTemplate &&
         (section.type === 'heading' ||
           section.type === 'subheader' ||
-          section.type === 'text') && (
-          <Field label="Content">
+          section.type === 'text' ||
+          section.type === 'link') && (
+          <Field label={section.type === 'link' ? 'Link text' : 'Content'}>
             <textarea
               className="input"
               rows={3}
@@ -113,6 +114,24 @@ export function Inspector() {
             />
           </Field>
         )}
+
+      {!isTemplate && section.type === 'link' && (
+        <Field label="Link URL">
+          <input
+            className="input"
+            type="text"
+            placeholder="https://…"
+            value={section.src}
+            onChange={(e) =>
+              dispatch({
+                type: 'UPDATE_SECTION',
+                id: activeSection.id,
+                patch: { src: e.target.value },
+              })
+            }
+          />
+        </Field>
+      )}
 
       {!isTemplate && section.type === 'image' && (
         <>

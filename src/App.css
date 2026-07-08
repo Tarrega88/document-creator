@@ -274,8 +274,8 @@
   align-items: flex-start;
 }
 .page {
-  --sheet-height: 297mm;
-  --page-margin: 25.4mm;
+  --sheet-height: 279mm;
+  --page-margin: 19.05mm;
   box-sizing: border-box;
   position: relative;
   color: #1a1a1a;
@@ -454,6 +454,12 @@
   border: none;
   border-top: 1px solid var(--border);
 }
+.doc-link {
+  display: inline-block;
+  color: #2563eb;
+  text-decoration: underline;
+  cursor: pointer;
+}
 .doc-container {
   display: flex;
   gap: 16px;
@@ -565,6 +571,12 @@
   }
   .doc-spacer-label {
     display: none !important;
+  }
+  /* Chromium only emits clickable PDF link annotations for anchors whose
+     computed display is `inline`; inline-block/block anchors are silently
+     dropped. Force inline so exported links stay clickable. */
+  .doc-link {
+    display: inline !important;
   }
   .app,
   .workspace {
