@@ -85,8 +85,9 @@ function Workspace() {
   const computeIndicator = (e: DragOverEvent | DragEndEvent): DropIndicator | null => {
     const a = e.active.data.current as DragData | undefined
     const o = e.over?.data.current as DropData | undefined
-    if (!a || !o || a.kind === 'palette-style') return null
-    if (o.kind === 'template-area' || o.kind === 'template') return null
+    if (!a || !o || a.kind === 'template-section') return null
+    if (o.kind === 'template-area' || o.kind === 'template' || o.kind === 'template-section')
+      return null
 
     let candidate: DropIndicator | null = null
     if (o.kind === 'canvas-root') {
@@ -127,18 +128,41 @@ function Workspace() {
     setIndicator(null)
     if (!a) return
 
-    if (a.kind === 'palette-style') {
-      if (o?.kind === 'section') {
-        dispatch({ type: 'APPLY_STYLE', id: o.id, style: a.style })
-      } else if (o?.kind === 'template') {
-        dispatch({ type: 'APPLY_STYLE_TO_TEMPLATE', id: o.id, style: a.style })
+    // Reordering a section within its template.
+    if (a.kind === 'template-section') {
+      const sameTemplateRow =
+        o?.kind === 'template-section' && o.templateId === a.templateId
+      const ownChip = o?.kind === 'template' && o.id === a.templateId
+      if (!sameTemplateRow && !ownChip) return
+      const template = state.templates.find((t) => t.id === a.templateId)
+      if (!template) return
+      let index = template.sections.length
+      if (o?.kind === 'template-section') {
+        const targetIndex = template.sections.findIndex((s) => s.id === o.sectionId)
+        const overRect = e.over?.rect
+        const activator = e.activatorEvent as PointerEvent
+        const pointerY = (activator?.clientY ?? 0) + e.delta.y
+        const after = overRect ? pointerY > overRect.top + overRect.height / 2 : false
+        index = after ? targetIndex + 1 : targetIndex
       }
+      dispatch({
+        type: 'MOVE_TEMPLATE_SECTION',
+        templateId: a.templateId,
+        sectionId: a.sectionId,
+        index,
+      })
       return
     }
 
     if (a.kind === 'palette-section') {
       if (o?.kind === 'template-area') {
-        dispatch({ type: 'ADD_TEMPLATE', section: createSection(a.sectionType) })
+        dispatch({ type: 'ADD_TEMPLATE', sections: [createSection(a.sectionType)] })
+      } else if (o?.kind === 'template' || o?.kind === 'template-section') {
+        dispatch({
+          type: 'ADD_SECTION_TO_TEMPLATE',
+          templateId: o.kind === 'template' ? o.id : o.templateId,
+          section: createSection(a.sectionType),
+        })
       } else if (ind) {
         dispatch({
           type: 'ADD_SECTION',
@@ -156,7 +180,15 @@ function Workspace() {
     if (a.kind === 'section') {
       if (o?.kind === 'template-area') {
         const source = findSection(state.sections, a.id)
-        if (source) dispatch({ type: 'ADD_TEMPLATE', section: source })
+        if (source) dispatch({ type: 'ADD_TEMPLATE', sections: [source] })
+      } else if (o?.kind === 'template' || o?.kind === 'template-section') {
+        const source = findSection(state.sections, a.id)
+        if (source)
+          dispatch({
+            type: 'ADD_SECTION_TO_TEMPLATE',
+            templateId: o.kind === 'template' ? o.id : o.templateId,
+            section: source,
+          })
       } else if (ind) {
         dispatch({
           type: 'MOVE_SECTION',

@@ -21,13 +21,19 @@ export interface Section {
 export interface Template {
   id: string
   name: string
-  section: Section
+  sections: Section[]
 }
+
+/** What the user currently has selected: either a section on the canvas or a
+ *  section inside a template. */
+export type Selection =
+  | { kind: 'section'; id: string }
+  | { kind: 'template-section'; templateId: string; sectionId: string }
 
 export interface DocumentState {
   sections: Section[]
   templates: Template[]
-  selectedId: string | null
+  selected: Selection | null
   globalStyles: CSSProperties
   sheetHeight: number
   marginHeight: number

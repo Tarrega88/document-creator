@@ -1,4 +1,4 @@
-import type { DocumentFile, DocumentState } from '../types'
+import type { DocumentFile, DocumentState, Section, Template } from '../types'
 import {
   DEFAULT_GLOBAL_STYLES,
   DEFAULT_MARGIN_HEIGHT,
@@ -24,6 +24,24 @@ export function exportJson(state: DocumentState): void {
   URL.revokeObjectURL(url)
 }
 
+/** Normalize templates from any file version. Templates used to hold a single
+ *  `section`; they now hold a `sections` array. */
+function normalizeTemplates(raw: unknown): Template[] {
+  if (!Array.isArray(raw)) return []
+  return raw
+    .map((t) => {
+      const template = t as Partial<Template> & { section?: Section }
+      const sections = Array.isArray(template.sections)
+        ? template.sections
+        : template.section
+          ? [template.section]
+          : []
+      if (!template.id || sections.length === 0) return null
+      return { id: template.id, name: template.name ?? 'template', sections }
+    })
+    .filter((t): t is Template => t !== null)
+}
+
 /** Read a JSON file chosen by the user and return the parsed document. */
 export function importJson(): Promise<DocumentFile> {
   return new Promise((resolve, reject) => {
@@ -41,7 +59,7 @@ export function importJson(): Promise<DocumentFile> {
           resolve({
             version: 1,
             sections: data.sections,
-            templates: Array.isArray(data.templates) ? data.templates : [],
+            templates: normalizeTemplates(data.templates),
             globalStyles: data.globalStyles ?? DEFAULT_GLOBAL_STYLES,
             sheetHeight:
               typeof data.sheetHeight === 'number' ? data.sheetHeight : DEFAULT_SHEET_HEIGHT,

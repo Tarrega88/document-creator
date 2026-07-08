@@ -16,7 +16,7 @@ export function Canvas() {
   } as CSSProperties
 
   return (
-    <main className="canvas" onClick={() => dispatch({ type: 'SELECT', id: null })}>
+    <main className="canvas" onClick={() => dispatch({ type: 'SELECT', selection: null })}>
       <div
         ref={setNodeRef}
         id="document-page"

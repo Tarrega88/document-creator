@@ -1,6 +1,6 @@
 import { CollapsiblePanel } from './CollapsiblePanel'
 import { GlobalStyles } from './GlobalStyles'
-import { SectionPalette, StylePalette } from './Palette'
+import { SectionPalette } from './Palette'
 import { TemplateArea } from './TemplateArea'
 
 export function Sidebar() {
@@ -11,9 +11,6 @@ export function Sidebar() {
       </CollapsiblePanel>
       <CollapsiblePanel title="Sections">
         <SectionPalette />
-      </CollapsiblePanel>
-      <CollapsiblePanel title="Styles">
-        <StylePalette />
       </CollapsiblePanel>
       <CollapsiblePanel title="Templates">
         <TemplateArea />

@@ -29,7 +29,19 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 export function Inspector() {
   const { state, dispatch } = useDocument()
-  const section = findSection(state.sections, state.selectedId)
+  const sel = state.selected
+
+  let section: Section | null = null
+  let isTemplate = false
+  let templateId = ''
+  if (sel?.kind === 'section') {
+    section = findSection(state.sections, sel.id)
+  } else if (sel?.kind === 'template-section') {
+    const template = state.templates.find((t) => t.id === sel.templateId)
+    section = template?.sections.find((s) => s.id === sel.sectionId) ?? null
+    isTemplate = true
+    templateId = sel.templateId
+  }
 
   if (!section) {
     return (
@@ -40,11 +52,27 @@ export function Inspector() {
     )
   }
 
-  const s = section.styles
+  const activeSection = section
+  const s = activeSection.styles
   const setStyle = (style: CSSProperties) =>
-    dispatch({ type: 'UPDATE_STYLE', id: section.id, style })
+    isTemplate
+      ? dispatch({
+          type: 'APPLY_STYLE_TO_TEMPLATE',
+          id: templateId,
+          sectionId: activeSection.id,
+          style,
+        })
+      : dispatch({ type: 'UPDATE_STYLE', id: activeSection.id, style })
   const setContent = (content: string) =>
-    dispatch({ type: 'UPDATE_SECTION', id: section.id, patch: { content } })
+    dispatch({ type: 'UPDATE_SECTION', id: activeSection.id, patch: { content } })
+  const deleteSection = () =>
+    isTemplate
+      ? dispatch({
+          type: 'REMOVE_TEMPLATE_SECTION',
+          templateId,
+          sectionId: activeSection.id,
+        })
+      : dispatch({ type: 'DELETE_SECTION', id: activeSection.id })
 
   const toggle = (
     prop: keyof CSSProperties,
@@ -55,7 +83,10 @@ export function Inspector() {
 
   return (
     <aside className="inspector">
-      <div className="inspector-title">Inspector · {section.type}</div>
+      <div className="inspector-title">
+        Inspector · {section.type}
+        {isTemplate && <span className="inspector-scope"> (template)</span>}
+      </div>
 
       {section.type === 'spacer' && (
         <Field label={`Height (${px(s.height) || 40}px)`}>
@@ -69,20 +100,21 @@ export function Inspector() {
         </Field>
       )}
 
-      {(section.type === 'heading' ||
-        section.type === 'subheader' ||
-        section.type === 'text') && (
-        <Field label="Content">
-          <textarea
-            className="input"
-            rows={3}
-            value={section.content}
-            onChange={(e) => setContent(e.target.value)}
-          />
-        </Field>
-      )}
+      {!isTemplate &&
+        (section.type === 'heading' ||
+          section.type === 'subheader' ||
+          section.type === 'text') && (
+          <Field label="Content">
+            <textarea
+              className="input"
+              rows={3}
+              value={section.content}
+              onChange={(e) => setContent(e.target.value)}
+            />
+          </Field>
+        )}
 
-      {section.type === 'image' && (
+      {!isTemplate && section.type === 'image' && (
         <>
           <Field label="Image URL">
             <input
@@ -93,7 +125,7 @@ export function Inspector() {
               onChange={(e) =>
                 dispatch({
                   type: 'UPDATE_SECTION',
-                  id: section.id,
+                  id: activeSection.id,
                   patch: { src: e.target.value },
                 })
               }
@@ -111,7 +143,7 @@ export function Inspector() {
                 reader.onload = () =>
                   dispatch({
                     type: 'UPDATE_SECTION',
-                    id: section.id,
+                    id: activeSection.id,
                     patch: { src: String(reader.result) },
                   })
                 reader.readAsDataURL(file)
@@ -243,7 +275,7 @@ export function Inspector() {
         <button
           type="button"
           className="btn danger"
-          onClick={() => dispatch({ type: 'DELETE_SECTION', id: section.id })}
+          onClick={deleteSection}
         >
           Delete section
         </button>

@@ -19,13 +19,6 @@ export const SECTION_DEFS: SectionDef[] = [
   { type: 'container', label: 'Container', icon: '▤' },
 ]
 
-/** Draggable "style" chips. Dropping one merges `style` into a section. */
-export interface StyleDef {
-  id: string
-  label: string
-  style: CSSProperties
-}
-
 /** Document-wide style defaults applied to the page and inherited by every
  *  section unless a section overrides a given property. */
 export const DEFAULT_GLOBAL_STYLES: CSSProperties = {
@@ -40,19 +33,6 @@ export const DEFAULT_SHEET_HEIGHT = 297
 
 /** Default top/bottom page margin in millimetres (1 inch). */
 export const DEFAULT_MARGIN_HEIGHT = 25.4
-
-export const STYLE_DEFS: StyleDef[] = [
-  { id: 'fontSize', label: 'Font Size', style: { fontSize: '24px' } },
-  { id: 'bold', label: 'Bold', style: { fontWeight: 700 } },
-  { id: 'underline', label: 'Underline', style: { textDecoration: 'underline' } },
-  { id: 'italic', label: 'Italic', style: { fontStyle: 'italic' } },
-  { id: 'color', label: 'Font Color', style: { color: '#aa3bff' } },
-  { id: 'bg', label: 'Background', style: { backgroundColor: '#f4f3ec' } },
-  { id: 'align', label: 'Center Align', style: { textAlign: 'center' } },
-  { id: 'font', label: 'Serif Font', style: { fontFamily: 'Georgia, "Times New Roman", serif' } },
-  { id: 'padding', label: 'Padding', style: { padding: '16px' } },
-  { id: 'margin', label: 'Margin', style: { margin: '16px' } },
-]
 
 /** Build a fresh section with sensible defaults for its type. */
 export function createSection(type: SectionType): Section {

@@ -187,13 +187,55 @@
 }
 .template-chip {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
+  flex-direction: column;
+  gap: 6px;
   padding: 6px 8px;
   border: 1px solid var(--border);
   border-radius: 6px;
   background: var(--bg);
+}
+.template-chip-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.template-sections {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.template-section-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+  padding: 3px 6px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+}
+.template-section-row.drop-target {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.template-section-row.selected {
+  border-color: var(--accent);
+  background: var(--accent-bg);
+}
+.template-section-row:hover {
+  border-color: var(--accent);
+  cursor: pointer;
+}
+.template-section-row.dragging {
+  opacity: 0.4;
+}
+.template-section-row .drag-handle {
+  cursor: grab;
+  touch-action: none;
+}
+.template-section-spacer {
+  flex: 1;
 }
 .template-name {
   flex: 1;
@@ -382,6 +424,25 @@
   max-width: 100%;
   display: block;
 }
+.doc-image-wrap {
+  position: relative;
+  display: inline-block;
+  max-width: 100%;
+  line-height: 0;
+}
+.resize-handle {
+  position: absolute;
+  right: -5px;
+  bottom: -5px;
+  width: 12px;
+  height: 12px;
+  border: 2px solid var(--accent);
+  border-radius: 3px;
+  background: #fff;
+  cursor: nwse-resize;
+  touch-action: none;
+  z-index: 3;
+}
 .image-placeholder {
   border: 1px dashed var(--border);
   color: var(--text);
@@ -421,6 +482,10 @@
   color: var(--text-h);
   margin-bottom: 12px;
   font-size: 15px;
+}
+.inspector-scope {
+  color: var(--accent);
+  font-weight: 500;
 }
 .field {
   display: flex;
@@ -490,7 +555,8 @@
   .toolbar,
   .sidebar,
   .inspector,
-  .section-toolbar {
+  .section-toolbar,
+  .resize-handle {
     display: none !important;
   }
   .doc-spacer {

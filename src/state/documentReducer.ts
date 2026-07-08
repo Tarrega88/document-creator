@@ -1,5 +1,5 @@
 import type { CSSProperties } from 'react'
-import type { DocumentState, Section, SectionType, Template } from '../types'
+import type { DocumentState, Section, SectionType, Selection, Template } from '../types'
 import {
   createSection,
   DEFAULT_GLOBAL_STYLES,
@@ -12,13 +12,15 @@ export type Action =
   | { type: 'ADD_SECTION'; sectionType: SectionType; parentId?: string; index?: number }
   | { type: 'ADD_SECTION_OBJECT'; section: Section; parentId?: string; index?: number }
   | { type: 'MOVE_SECTION'; id: string; parentId?: string; index: number }
-  | { type: 'APPLY_STYLE'; id: string; style: CSSProperties }
   | { type: 'UPDATE_SECTION'; id: string; patch: Partial<Section> }
   | { type: 'UPDATE_STYLE'; id: string; style: CSSProperties }
   | { type: 'DELETE_SECTION'; id: string }
-  | { type: 'SELECT'; id: string | null }
-  | { type: 'ADD_TEMPLATE'; section: Section; name?: string }
-  | { type: 'APPLY_STYLE_TO_TEMPLATE'; id: string; style: CSSProperties }
+  | { type: 'SELECT'; selection: Selection | null }
+  | { type: 'ADD_TEMPLATE'; sections: Section[]; name?: string }
+  | { type: 'ADD_SECTION_TO_TEMPLATE'; templateId: string; section: Section }
+  | { type: 'REMOVE_TEMPLATE_SECTION'; templateId: string; sectionId: string }
+  | { type: 'MOVE_TEMPLATE_SECTION'; templateId: string; sectionId: string; index: number }
+  | { type: 'APPLY_STYLE_TO_TEMPLATE'; id: string; sectionId: string; style: CSSProperties }
   | { type: 'INSTANTIATE_TEMPLATE'; id: string }
   | { type: 'RENAME_TEMPLATE'; id: string; name: string }
   | { type: 'DELETE_TEMPLATE'; id: string }
@@ -38,7 +40,7 @@ export type Action =
 export const initialState: DocumentState = {
   sections: [],
   templates: [],
-  selectedId: null,
+  selected: null,
   globalStyles: DEFAULT_GLOBAL_STYLES,
   sheetHeight: DEFAULT_SHEET_HEIGHT,
   marginHeight: DEFAULT_MARGIN_HEIGHT,
@@ -51,6 +53,19 @@ function cloneWithNewIds(section: Section): Section {
     id: uid(),
     styles: { ...section.styles },
     children: section.children.map(cloneWithNewIds),
+  }
+}
+
+/** Clone a section for storage in a template: keep the type and styles but
+ *  drop content/src, since templates are style presets, not content. */
+function toTemplateSection(section: Section): Section {
+  return {
+    ...section,
+    id: uid(),
+    content: '',
+    src: '',
+    styles: { ...section.styles },
+    children: section.children.map(toTemplateSection),
   }
 }
 
@@ -125,7 +140,7 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
       return {
         ...state,
         sections: insertAt(state.sections, section, action.parentId, action.index),
-        selectedId: section.id,
+        selected: { kind: 'section', id: section.id },
       }
     }
     case 'ADD_SECTION_OBJECT': {
@@ -133,7 +148,7 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
       return {
         ...state,
         sections: insertAt(state.sections, section, action.parentId, action.index),
-        selectedId: section.id,
+        selected: { kind: 'section', id: section.id },
       }
     }
     case 'MOVE_SECTION': {
@@ -150,18 +165,9 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
       return {
         ...state,
         sections: insertAt(without, moving, action.parentId, index),
-        selectedId: action.id,
+        selected: { kind: 'section', id: action.id },
       }
     }
-    case 'APPLY_STYLE':
-      return {
-        ...state,
-        selectedId: action.id,
-        sections: mapSection(state.sections, action.id, (s) => ({
-          ...s,
-          styles: { ...s.styles, ...action.style },
-        })),
-      }
     case 'UPDATE_STYLE':
       return {
         ...state,
@@ -182,32 +188,84 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
       return {
         ...state,
         sections: removeSection(state.sections, action.id),
-        selectedId: state.selectedId === action.id ? null : state.selectedId,
+        selected:
+          state.selected?.kind === 'section' && state.selected.id === action.id
+            ? null
+            : state.selected,
       }
     case 'SELECT':
-      return { ...state, selectedId: action.id }
+      return { ...state, selected: action.selection }
     case 'ADD_TEMPLATE': {
+      const sections = action.sections.map(toTemplateSection)
       const template: Template = {
         id: uid(),
-        name: action.name ?? `${action.section.type} template`,
-        section: cloneWithNewIds(action.section),
+        name: action.name ?? `${action.sections[0]?.type ?? 'empty'} template`,
+        sections,
       }
       return { ...state, templates: [...state.templates, template] }
     }
+    case 'ADD_SECTION_TO_TEMPLATE':
+      return {
+        ...state,
+        templates: state.templates.map((t) =>
+          t.id === action.templateId
+            ? { ...t, sections: [...t.sections, toTemplateSection(action.section)] }
+            : t,
+        ),
+      }
+    case 'REMOVE_TEMPLATE_SECTION': {
+      const templates = state.templates.flatMap((t) => {
+        if (t.id !== action.templateId) return [t]
+        const sections = t.sections.filter((s) => s.id !== action.sectionId)
+        // Drop the whole template once its last section is removed.
+        return sections.length ? [{ ...t, sections }] : []
+      })
+      const cleared =
+        state.selected?.kind === 'template-section' &&
+        state.selected.templateId === action.templateId &&
+        state.selected.sectionId === action.sectionId
+      return { ...state, templates, selected: cleared ? null : state.selected }
+    }
+    case 'MOVE_TEMPLATE_SECTION':
+      return {
+        ...state,
+        templates: state.templates.map((t) => {
+          if (t.id !== action.templateId) return t
+          const from = t.sections.findIndex((s) => s.id === action.sectionId)
+          if (from === -1) return t
+          const section = t.sections[from]
+          const without = t.sections.filter((s) => s.id !== action.sectionId)
+          const index = from < action.index ? action.index - 1 : action.index
+          without.splice(index, 0, section)
+          return { ...t, sections: without }
+        }),
+      }
     case 'APPLY_STYLE_TO_TEMPLATE':
       return {
         ...state,
         templates: state.templates.map((t) =>
           t.id === action.id
-            ? { ...t, section: { ...t.section, styles: { ...t.section.styles, ...action.style } } }
+            ? {
+                ...t,
+                sections: t.sections.map((s) =>
+                  s.id === action.sectionId
+                    ? { ...s, styles: { ...s.styles, ...action.style } }
+                    : s,
+                ),
+              }
             : t,
         ),
       }
     case 'INSTANTIATE_TEMPLATE': {
       const template = state.templates.find((t) => t.id === action.id)
       if (!template) return state
-      const section = cloneWithNewIds(template.section)
-      return { ...state, sections: [...state.sections, section], selectedId: section.id }
+      const sections = template.sections.map(cloneWithNewIds)
+      const last = sections[sections.length - 1]
+      return {
+        ...state,
+        sections: [...state.sections, ...sections],
+        selected: last ? { kind: 'section', id: last.id } : state.selected,
+      }
     }
     case 'RENAME_TEMPLATE':
       return {
@@ -217,7 +275,15 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
         ),
       }
     case 'DELETE_TEMPLATE':
-      return { ...state, templates: state.templates.filter((t) => t.id !== action.id) }
+      return {
+        ...state,
+        templates: state.templates.filter((t) => t.id !== action.id),
+        selected:
+          state.selected?.kind === 'template-section' &&
+          state.selected.templateId === action.id
+            ? null
+            : state.selected,
+      }
     case 'UPDATE_GLOBAL_STYLE':
       return { ...state, globalStyles: { ...state.globalStyles, ...action.style } }
     case 'UPDATE_SHEET_HEIGHT':
@@ -231,7 +297,7 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
         globalStyles: action.globalStyles,
         sheetHeight: action.sheetHeight,
         marginHeight: action.marginHeight,
-        selectedId: null,
+        selected: null,
       }
     case 'CLEAR':
       return {

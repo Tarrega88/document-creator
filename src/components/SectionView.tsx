@@ -1,4 +1,4 @@
-import { Fragment } from 'react'
+import { Fragment, useRef } from 'react'
 import { useDraggable, useDroppable } from '@dnd-kit/core'
 import { useDocument } from '../state/documentStore'
 import { useDropIndicator } from '../dnd/dropIndicator'
@@ -33,6 +33,61 @@ function EditableText({
   )
 }
 
+/** An image (or its placeholder) that can be resized by dragging a corner
+ *  handle. Resizing sets an explicit pixel width/height on the section. */
+function ImageSection({ section }: { section: Section }) {
+  const { state, dispatch } = useDocument()
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const selected =
+    state.selected?.kind === 'section' && state.selected.id === section.id
+
+  const startResize = (e: React.PointerEvent) => {
+    // Don't let the resize gesture trigger selection or a section drag.
+    e.preventDefault()
+    e.stopPropagation()
+    const el = wrapRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const startX = e.clientX
+    const startWidth = rect.width
+
+    const onMove = (ev: PointerEvent) => {
+      const width = Math.max(20, Math.round(startWidth + (ev.clientX - startX)))
+      dispatch({
+        type: 'UPDATE_STYLE',
+        id: section.id,
+        style: { width: `${width}px`, height: 'auto' },
+      })
+    }
+    const onUp = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+    }
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup', onUp)
+  }
+
+  return (
+    <div ref={wrapRef} className="doc-image-wrap" style={{ width: section.styles.width }}>
+      {section.src ? (
+        <img className="doc-image" src={section.src} alt="" style={section.styles} />
+      ) : (
+        <div className="image-placeholder" style={section.styles}>
+          No image — select and add a URL or upload in the inspector
+        </div>
+      )}
+      {selected && (
+        <span
+          className="resize-handle"
+          title="Drag to resize"
+          onPointerDown={startResize}
+          onClick={(e) => e.stopPropagation()}
+        />
+      )}
+    </div>
+  )
+}
+
 function SectionContent({ section }: { section: Section }) {
   switch (section.type) {
     case 'heading':
@@ -50,13 +105,7 @@ function SectionContent({ section }: { section: Section }) {
         </div>
       )
     case 'image':
-      return section.src ? (
-        <img className="doc-image" src={section.src} alt="" style={section.styles} />
-      ) : (
-        <div className="image-placeholder" style={section.styles}>
-          No image — select and add a URL or upload in the inspector
-        </div>
-      )
+      return <ImageSection section={section} />
     case 'container':
       return (
         <div className="doc-container" style={section.styles}>
@@ -117,7 +166,8 @@ export function SectionView({ section }: { section: Section }) {
     setDropRef(node)
   }
 
-  const selected = state.selectedId === section.id
+  const selected =
+    state.selected?.kind === 'section' && state.selected.id === section.id
 
   return (
     <div
@@ -131,7 +181,7 @@ export function SectionView({ section }: { section: Section }) {
         .trim()}
       onClick={(e) => {
         e.stopPropagation()
-        dispatch({ type: 'SELECT', id: section.id })
+        dispatch({ type: 'SELECT', selection: { kind: 'section', id: section.id } })
       }}
     >
       <div className="section-toolbar">
