@@ -9,6 +9,17 @@ export type SectionType =
   | 'divider'
   | 'spacer'
   | 'container'
+  | 'table'
+
+/** Structured data for a `table` section: header labels plus a grid of string
+ *  cells. `rows[r][c]` is the cell in row `r`, column `c`; every row has the
+ *  same length as `columns`. */
+export interface TableData {
+  columns: string[]
+  rows: string[][]
+  /** Applied to every row (header + body) in pixels; unset means auto height. */
+  rowHeight?: number
+}
 
 export interface Section {
   id: string
@@ -17,6 +28,8 @@ export interface Section {
   src: string
   styles: CSSProperties
   children: Section[]
+  /** Present only for `table` sections. */
+  table?: TableData
 }
 
 export interface Template {

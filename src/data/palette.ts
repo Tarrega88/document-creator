@@ -18,6 +18,7 @@ export const SECTION_DEFS: SectionDef[] = [
   { type: 'divider', label: 'Divider', icon: '—' },
   { type: 'spacer', label: 'Spacer', icon: '↕' },
   { type: 'container', label: 'Container', icon: '▤' },
+  { type: 'table', label: 'Table', icon: '⊞' },
 ]
 
 /** Document-wide style defaults applied to the page and inherited by every
@@ -57,6 +58,19 @@ export function createSection(type: SectionType): Section {
       return { ...base, styles: { height: '40px' } }
     case 'container':
       return { ...base, styles: { display: 'flex', gap: '16px', padding: '16px' } }
+    case 'table':
+      return {
+        ...base,
+        styles: { width: '100%' },
+        table: {
+          columns: ['Column 1', 'Column 2'],
+          rows: [
+            ['', ''],
+            ['', ''],
+            ['', ''],
+          ],
+        },
+      }
     case 'image':
     default:
       return { ...base }

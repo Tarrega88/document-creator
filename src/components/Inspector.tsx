@@ -172,6 +172,25 @@ export function Inspector() {
         </>
       )}
 
+      {!isTemplate && section.type === 'table' && (
+        <Field label="Row height (px)">
+          <input
+            className="input"
+            type="number"
+            min={0}
+            placeholder="Auto"
+            value={activeSection.table?.rowHeight ?? ''}
+            onChange={(e) =>
+              dispatch({
+                type: 'SET_TABLE_ROW_HEIGHT',
+                id: activeSection.id,
+                height: Number(e.target.value),
+              })
+            }
+          />
+        </Field>
+      )}
+
       {section.type !== 'divider' &&
         section.type !== 'image' &&
         section.type !== 'spacer' && (
@@ -301,6 +320,7 @@ export function Inspector() {
       </div>
 
       <ContainerNote section={section} />
+      <TableNote section={section} />
     </aside>
   )
 }
@@ -308,4 +328,14 @@ export function Inspector() {
 function ContainerNote({ section }: { section: Section }) {
   if (section.type !== 'container') return null
   return <p className="hint">Drop sections onto this container to nest them inside.</p>
+}
+
+function TableNote({ section }: { section: Section }) {
+  if (section.type !== 'table') return null
+  return (
+    <p className="hint">
+      Edit headers and cells directly in the table. Use the +/✕ controls to add or remove
+      columns and rows. Font and colors here apply to the whole table.
+    </p>
+  )
 }

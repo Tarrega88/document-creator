@@ -117,6 +117,168 @@ function ImageSection({ section }: { section: Section }) {
   )
 }
 
+/** An editable cell in a table section. Renders a spreadsheet-like cell that
+ *  commits its text on blur. Used for both header labels and body cells. */
+function TableCell({
+  value,
+  header,
+  style,
+  onCommit,
+}: {
+  value: string
+  header: boolean
+  style?: React.CSSProperties
+  onCommit: (value: string) => void
+}) {
+  const Tag = header ? 'th' : 'td'
+  return (
+    <Tag
+      className={header ? 'doc-table-th' : 'doc-table-td'}
+      style={style}
+      contentEditable
+      suppressContentEditableWarning
+      onBlur={(e) => onCommit(e.currentTarget.textContent ?? '')}
+    >
+      {value}
+    </Tag>
+  )
+}
+
+/** A configurable, spreadsheet-like table. Columns and rows are added/removed
+ *  inline; headers and cells are edited in place. Structure controls appear
+ *  when the section is selected. */
+function TableSection({ section }: { section: Section }) {
+  const { state, dispatch } = useDocument()
+  const table = section.table ?? { columns: [], rows: [] }
+  const selected = state.selected?.kind === 'section' && state.selected.id === section.id
+  const align = section.styles.textAlign
+  const rowHeight = table.rowHeight
+  const headerStyle = rowHeight ? { height: `${rowHeight}px` } : undefined
+  const bodyStyle =
+    align || rowHeight
+      ? { textAlign: align, height: rowHeight ? `${rowHeight}px` : undefined }
+      : undefined
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation()
+
+  return (
+    <div className="doc-table-wrap">
+      <table className="doc-table" style={section.styles}>
+        <thead>
+          <tr>
+            {selected && <th className="doc-table-gutter" aria-hidden="true" />}
+            {table.columns.map((label, col) => (
+              <th key={col} className="doc-table-th-wrap">
+                <div className="doc-table-th-inner">
+                  <TableCell
+                    value={label}
+                    header
+                    style={headerStyle}
+                    onCommit={(value) =>
+                      dispatch({ type: 'SET_TABLE_HEADER', id: section.id, col, value })
+                    }
+                  />
+                  {selected && table.columns.length > 1 && (
+                    <button
+                      type="button"
+                      className="doc-table-remove-col"
+                      title="Remove column"
+                      onPointerDown={stop}
+                      onClick={(e) => {
+                        stop(e)
+                        dispatch({ type: 'REMOVE_TABLE_COLUMN', id: section.id, col })
+                      }}
+                    >
+                      ✕
+                    </button>
+                  )}
+                </div>
+              </th>
+            ))}
+            {selected && (
+              <th className="doc-table-add-col-cell">
+                <button
+                  type="button"
+                  className="doc-table-add-col"
+                  title="Add column"
+                  onPointerDown={stop}
+                  onClick={(e) => {
+                    stop(e)
+                    dispatch({ type: 'ADD_TABLE_COLUMN', id: section.id })
+                  }}
+                >
+                  +
+                </button>
+              </th>
+            )}
+          </tr>
+        </thead>
+        <tbody>
+          {table.rows.map((row, r) => (
+            <tr key={r}>
+              {selected && (
+                <td className="doc-table-gutter">
+                  <button
+                    type="button"
+                    className="doc-table-remove-row"
+                    title="Remove row"
+                    onPointerDown={stop}
+                    onClick={(e) => {
+                      stop(e)
+                      dispatch({ type: 'REMOVE_TABLE_ROW', id: section.id, row: r })
+                    }}
+                  >
+                    ✕
+                  </button>
+                </td>
+              )}
+              {table.columns.map((_, c) => (
+                <TableCell
+                  key={c}
+                  value={row[c] ?? ''}
+                  header={false}
+                  style={bodyStyle}
+                  onCommit={(value) =>
+                    dispatch({ type: 'SET_TABLE_CELL', id: section.id, row: r, col: c, value })
+                  }
+                />
+              ))}
+              {selected && <td className="doc-table-add-col-cell" aria-hidden="true" />}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      {selected && (
+        <div className="doc-table-controls" onClick={stop}>
+          <button
+            type="button"
+            className="btn"
+            onClick={() => dispatch({ type: 'ADD_TABLE_ROW', id: section.id })}
+          >
+            + Row
+          </button>
+          <label className="doc-table-rows">
+            Rows
+            <input
+              className="input"
+              type="number"
+              min={0}
+              max={200}
+              value={table.rows.length}
+              onChange={(e) =>
+                dispatch({
+                  type: 'SET_TABLE_ROW_COUNT',
+                  id: section.id,
+                  count: Number(e.target.value),
+                })
+              }
+            />
+          </label>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function SectionContent({ section }: { section: Section }) {
   switch (section.type) {
     case 'heading':
@@ -137,6 +299,8 @@ function SectionContent({ section }: { section: Section }) {
       )
     case 'image':
       return <ImageSection section={section} />
+    case 'table':
+      return <TableSection section={section} />
     case 'container':
       return (
         <div className="doc-container" style={section.styles}>

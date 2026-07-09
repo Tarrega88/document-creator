@@ -4,6 +4,7 @@ import type {
   Section,
   SectionType,
   Selection,
+  TableData,
   Template,
   TemplateFolder,
 } from '../types'
@@ -39,6 +40,14 @@ export type Action =
   | { type: 'UPDATE_GLOBAL_STYLE'; style: CSSProperties }
   | { type: 'UPDATE_SHEET_HEIGHT'; height: number }
   | { type: 'UPDATE_MARGIN_HEIGHT'; height: number }
+  | { type: 'SET_TABLE_HEADER'; id: string; col: number; value: string }
+  | { type: 'SET_TABLE_CELL'; id: string; row: number; col: number; value: string }
+  | { type: 'ADD_TABLE_COLUMN'; id: string }
+  | { type: 'REMOVE_TABLE_COLUMN'; id: string; col: number }
+  | { type: 'ADD_TABLE_ROW'; id: string }
+  | { type: 'REMOVE_TABLE_ROW'; id: string; row: number }
+  | { type: 'SET_TABLE_ROW_COUNT'; id: string; count: number }
+  | { type: 'SET_TABLE_ROW_HEIGHT'; id: string; height: number }
   | {
       type: 'LOAD'
       sections: Section[]
@@ -66,9 +75,18 @@ function cloneWithNewIds(section: Section): Section {
     ...section,
     id: uid(),
     styles: { ...section.styles },
+    table: section.table ? cloneTable(section.table) : section.table,
     children: section.children.map(cloneWithNewIds),
   }
 }
+
+/** Deep-copy a table's arrays so instances never share row/column references. */
+function cloneTable(table: TableData): TableData {
+  return { columns: [...table.columns], rows: table.rows.map((r) => [...r]), rowHeight: table.rowHeight }
+}
+
+/** Cap a table at a sane size to avoid runaway row/column counts. */
+const MAX_TABLE_ROWS = 200
 
 /** Clone a section for storage in a template: keep the type and styles but
  *  drop content/src, since templates are style presets, not content. */
@@ -78,6 +96,14 @@ function toTemplateSection(section: Section): Section {
     id: uid(),
     content: '',
     src: '',
+    // Keep the column count and header names, but clear all cell values.
+    table: section.table
+      ? {
+          columns: [...section.table.columns],
+          rows: section.table.rows.map((r) => r.map(() => '')),
+          rowHeight: section.table.rowHeight,
+        }
+      : section.table,
     styles: { ...section.styles },
     children: section.children.map(toTemplateSection),
   }
@@ -93,6 +119,7 @@ function withDefaultContent(section: Section): Section {
     id: uid(),
     content: fresh.content,
     src: fresh.src,
+    table: section.table ? cloneTable(section.table) : section.table,
     styles: { ...section.styles },
     children: section.children.map(withDefaultContent),
   }
@@ -109,6 +136,19 @@ function mapSection(
     if (s.children.length) return { ...s, children: mapSection(s.children, id, fn) }
     return s
   })
+}
+
+/** Apply `fn` to the table of the section matching `id`, rebuilding the tree.
+ *  No-op for sections that aren't tables. */
+function updateTable(
+  state: DocumentState,
+  id: string,
+  fn: (table: TableData) => TableData,
+): DocumentState {
+  return {
+    ...state,
+    sections: mapSection(state.sections, id, (s) => (s.table ? { ...s, table: fn(s.table) } : s)),
+  }
 }
 
 /** Recursively remove the section matching `id`. */
@@ -350,6 +390,56 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
       without.splice(index, 0, folder)
       return { ...state, folders: without }
     }
+    case 'SET_TABLE_HEADER':
+      return updateTable(state, action.id, (t) => ({
+        ...t,
+        columns: t.columns.map((c, i) => (i === action.col ? action.value : c)),
+      }))
+    case 'SET_TABLE_CELL':
+      return updateTable(state, action.id, (t) => ({
+        ...t,
+        rows: t.rows.map((r, ri) =>
+          ri === action.row ? r.map((c, ci) => (ci === action.col ? action.value : c)) : r,
+        ),
+      }))
+    case 'ADD_TABLE_COLUMN':
+      return updateTable(state, action.id, (t) => ({
+        columns: [...t.columns, `Column ${t.columns.length + 1}`],
+        rows: t.rows.map((r) => [...r, '']),
+      }))
+    case 'REMOVE_TABLE_COLUMN':
+      return updateTable(state, action.id, (t) =>
+        t.columns.length <= 1
+          ? t
+          : {
+              columns: t.columns.filter((_, i) => i !== action.col),
+              rows: t.rows.map((r) => r.filter((_, i) => i !== action.col)),
+            },
+      )
+    case 'ADD_TABLE_ROW':
+      return updateTable(state, action.id, (t) => ({
+        ...t,
+        rows: [...t.rows, t.columns.map(() => '')],
+      }))
+    case 'REMOVE_TABLE_ROW':
+      return updateTable(state, action.id, (t) => ({
+        ...t,
+        rows: t.rows.filter((_, i) => i !== action.row),
+      }))
+    case 'SET_TABLE_ROW_COUNT':
+      return updateTable(state, action.id, (t) => {
+        const count = Math.max(0, Math.min(MAX_TABLE_ROWS, Math.floor(action.count) || 0))
+        if (count <= t.rows.length) return { ...t, rows: t.rows.slice(0, count) }
+        const added = Array.from({ length: count - t.rows.length }, () =>
+          t.columns.map(() => ''),
+        )
+        return { ...t, rows: [...t.rows, ...added] }
+      })
+    case 'SET_TABLE_ROW_HEIGHT':
+      return updateTable(state, action.id, (t) => ({
+        ...t,
+        rowHeight: action.height > 0 ? Math.floor(action.height) : undefined,
+      }))
     case 'UPDATE_GLOBAL_STYLE':
       return { ...state, globalStyles: { ...state.globalStyles, ...action.style } }
     case 'UPDATE_SHEET_HEIGHT':
