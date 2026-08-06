@@ -19,6 +19,9 @@ export interface TableData {
   rows: string[][]
   /** Applied to every row (header + body) in pixels; unset means auto height. */
   rowHeight?: number
+  /** Per-column width in pixels; `columnWidths[c]` is the width of column `c`.
+   *  An unset or `0` entry means the column sizes automatically. */
+  columnWidths?: number[]
 }
 
 export interface Section {
@@ -45,6 +48,11 @@ export interface TemplateFolder {
   name: string
 }
 
+/** Page orientation. In both cases text flows top-to-bottom; `landscape`
+ *  simply rotates the sheet so it is wider than it is tall, giving tables more
+ *  horizontal room for columns. */
+export type PageOrientation = 'portrait' | 'landscape'
+
 /** What the user currently has selected: either a section on the canvas or a
  *  section inside a template. */
 export type Selection =
@@ -59,6 +67,7 @@ export interface DocumentState {
   globalStyles: CSSProperties
   sheetHeight: number
   marginHeight: number
+  orientation: PageOrientation
 }
 
 /** Shape of the JSON that gets exported / imported. Documents hold only
@@ -72,4 +81,5 @@ export interface DocumentFile {
   globalStyles: CSSProperties
   sheetHeight: number
   marginHeight: number
+  orientation?: PageOrientation
 }

@@ -1,6 +1,7 @@
 import type { CSSProperties } from 'react'
 import type {
   DocumentState,
+  PageOrientation,
   Section,
   SectionType,
   Selection,
@@ -12,6 +13,7 @@ import {
   createSection,
   DEFAULT_GLOBAL_STYLES,
   DEFAULT_MARGIN_HEIGHT,
+  DEFAULT_ORIENTATION,
   DEFAULT_SHEET_HEIGHT,
 } from '../data/palette'
 import { uid } from '../utils/id'
@@ -40,6 +42,7 @@ export type Action =
   | { type: 'UPDATE_GLOBAL_STYLE'; style: CSSProperties }
   | { type: 'UPDATE_SHEET_HEIGHT'; height: number }
   | { type: 'UPDATE_MARGIN_HEIGHT'; height: number }
+  | { type: 'UPDATE_ORIENTATION'; orientation: PageOrientation }
   | { type: 'SET_TABLE_HEADER'; id: string; col: number; value: string }
   | { type: 'SET_TABLE_CELL'; id: string; row: number; col: number; value: string }
   | { type: 'ADD_TABLE_COLUMN'; id: string }
@@ -48,6 +51,7 @@ export type Action =
   | { type: 'REMOVE_TABLE_ROW'; id: string; row: number }
   | { type: 'SET_TABLE_ROW_COUNT'; id: string; count: number }
   | { type: 'SET_TABLE_ROW_HEIGHT'; id: string; height: number }
+  | { type: 'SET_TABLE_COLUMN_WIDTH'; id: string; col: number; width: number }
   | {
       type: 'LOAD'
       sections: Section[]
@@ -56,6 +60,7 @@ export type Action =
       globalStyles: CSSProperties
       sheetHeight: number
       marginHeight: number
+      orientation: PageOrientation
     }
   | { type: 'CLEAR' }
 
@@ -67,6 +72,7 @@ export const initialState: DocumentState = {
   globalStyles: DEFAULT_GLOBAL_STYLES,
   sheetHeight: DEFAULT_SHEET_HEIGHT,
   marginHeight: DEFAULT_MARGIN_HEIGHT,
+  orientation: DEFAULT_ORIENTATION,
 }
 
 /** Return a deep clone with brand-new ids (used for templates / instancing). */
@@ -82,7 +88,12 @@ function cloneWithNewIds(section: Section): Section {
 
 /** Deep-copy a table's arrays so instances never share row/column references. */
 function cloneTable(table: TableData): TableData {
-  return { columns: [...table.columns], rows: table.rows.map((r) => [...r]), rowHeight: table.rowHeight }
+  return {
+    columns: [...table.columns],
+    rows: table.rows.map((r) => [...r]),
+    rowHeight: table.rowHeight,
+    columnWidths: table.columnWidths ? [...table.columnWidths] : table.columnWidths,
+  }
 }
 
 /** Cap a table at a sane size to avoid runaway row/column counts. */
@@ -102,6 +113,9 @@ function toTemplateSection(section: Section): Section {
           columns: [...section.table.columns],
           rows: section.table.rows.map((r) => r.map(() => '')),
           rowHeight: section.table.rowHeight,
+          columnWidths: section.table.columnWidths
+            ? [...section.table.columnWidths]
+            : section.table.columnWidths,
         }
       : section.table,
     styles: { ...section.styles },
@@ -404,16 +418,22 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
       }))
     case 'ADD_TABLE_COLUMN':
       return updateTable(state, action.id, (t) => ({
+        ...t,
         columns: [...t.columns, `Column ${t.columns.length + 1}`],
         rows: t.rows.map((r) => [...r, '']),
+        columnWidths: t.columnWidths ? [...t.columnWidths, 0] : t.columnWidths,
       }))
     case 'REMOVE_TABLE_COLUMN':
       return updateTable(state, action.id, (t) =>
         t.columns.length <= 1
           ? t
           : {
+              ...t,
               columns: t.columns.filter((_, i) => i !== action.col),
               rows: t.rows.map((r) => r.filter((_, i) => i !== action.col)),
+              columnWidths: t.columnWidths
+                ? t.columnWidths.filter((_, i) => i !== action.col)
+                : t.columnWidths,
             },
       )
     case 'ADD_TABLE_ROW':
@@ -440,12 +460,23 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
         ...t,
         rowHeight: action.height > 0 ? Math.floor(action.height) : undefined,
       }))
+    case 'SET_TABLE_COLUMN_WIDTH':
+      return updateTable(state, action.id, (t) => {
+        // Grow (or start) the widths array to cover every column, then set the
+        // target column. A width of 0 clears it back to automatic sizing.
+        const widths = t.columns.map((_, i) => t.columnWidths?.[i] ?? 0)
+        widths[action.col] = action.width > 0 ? Math.round(action.width) : 0
+        const hasAny = widths.some((w) => w > 0)
+        return { ...t, columnWidths: hasAny ? widths : undefined }
+      })
     case 'UPDATE_GLOBAL_STYLE':
       return { ...state, globalStyles: { ...state.globalStyles, ...action.style } }
     case 'UPDATE_SHEET_HEIGHT':
       return { ...state, sheetHeight: action.height }
     case 'UPDATE_MARGIN_HEIGHT':
       return { ...state, marginHeight: action.height }
+    case 'UPDATE_ORIENTATION':
+      return { ...state, orientation: action.orientation }
     case 'LOAD': {
       // Templates + folders are a global library, not part of a document. Keep
       // the current library, but merge in any items from an imported file we
@@ -474,6 +505,7 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
         globalStyles: action.globalStyles,
         sheetHeight: action.sheetHeight,
         marginHeight: action.marginHeight,
+        orientation: action.orientation,
         selected: null,
       }
     }
@@ -485,6 +517,7 @@ export function reducer(state: DocumentState, action: Action): DocumentState {
         globalStyles: state.globalStyles,
         sheetHeight: state.sheetHeight,
         marginHeight: state.marginHeight,
+        orientation: state.orientation,
       }
     default:
       return state

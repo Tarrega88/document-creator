@@ -144,6 +144,54 @@ function TableCell({
   )
 }
 
+/** Drag handle on a column's right edge that resizes it. Double-click resets
+ *  the column back to automatic width. */
+function ColumnResizeHandle({
+  sectionId,
+  col,
+  width,
+}: {
+  sectionId: string
+  col: number
+  width?: number
+}) {
+  const { dispatch } = useDocument()
+
+  const onPointerDown = (e: React.PointerEvent<HTMLSpanElement>) => {
+    e.stopPropagation()
+    e.preventDefault()
+    const handle = e.currentTarget
+    const th = handle.closest('th') as HTMLElement | null
+    const startX = e.clientX
+    const startWidth = width && width > 0 ? width : th ? th.getBoundingClientRect().width : 0
+    handle.setPointerCapture(e.pointerId)
+
+    const onMove = (ev: PointerEvent) => {
+      const next = Math.max(40, Math.round(startWidth + (ev.clientX - startX)))
+      dispatch({ type: 'SET_TABLE_COLUMN_WIDTH', id: sectionId, col, width: next })
+    }
+    const onUp = () => {
+      handle.removeEventListener('pointermove', onMove)
+      handle.removeEventListener('pointerup', onUp)
+    }
+    handle.addEventListener('pointermove', onMove)
+    handle.addEventListener('pointerup', onUp)
+  }
+
+  return (
+    <span
+      className="doc-table-col-resize"
+      title="Drag to resize · double-click to auto-fit"
+      onPointerDown={onPointerDown}
+      onClick={(e) => e.stopPropagation()}
+      onDoubleClick={(e) => {
+        e.stopPropagation()
+        dispatch({ type: 'SET_TABLE_COLUMN_WIDTH', id: sectionId, col, width: 0 })
+      }}
+    />
+  )
+}
+
 /** A configurable, spreadsheet-like table. Columns and rows are added/removed
  *  inline; headers and cells are edited in place. Structure controls appear
  *  when the section is selected. */
@@ -163,6 +211,14 @@ function TableSection({ section }: { section: Section }) {
   return (
     <div className="doc-table-wrap">
       <table className="doc-table" style={section.styles}>
+        <colgroup>
+          {selected && <col className="doc-table-col-gutter" />}
+          {table.columns.map((_, col) => {
+            const w = table.columnWidths?.[col]
+            return <col key={col} style={w ? { width: `${w}px` } : undefined} />
+          })}
+          {selected && <col className="doc-table-col-add" />}
+        </colgroup>
         <thead>
           <tr>
             {selected && <th className="doc-table-gutter" aria-hidden="true" />}
@@ -190,6 +246,13 @@ function TableSection({ section }: { section: Section }) {
                     >
                       ✕
                     </button>
+                  )}
+                  {selected && (
+                    <ColumnResizeHandle
+                      sectionId={section.id}
+                      col={col}
+                      width={table.columnWidths?.[col]}
+                    />
                   )}
                 </div>
               </th>

@@ -383,11 +383,12 @@
 }
 .page {
   --sheet-height: 279mm;
+  --page-width: 210mm;
   --page-margin: 19.05mm;
   box-sizing: border-box;
   position: relative;
   color: #1a1a1a;
-  width: 210mm;
+  width: var(--page-width);
   max-width: 100%;
   min-height: var(--sheet-height);
   /* The margin setting is a visual guide only (see the overlay below) and does
@@ -609,6 +610,30 @@
 .doc-table-th-inner {
   display: flex;
   align-items: stretch;
+  position: relative;
+}
+/* Draggable column-resize handle sitting on the header's right edge. */
+.doc-table-col-resize {
+  position: absolute;
+  top: 0;
+  right: -3px;
+  width: 7px;
+  height: 100%;
+  cursor: col-resize;
+  z-index: 1;
+  touch-action: none;
+}
+.doc-table-col-resize::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 3px;
+  width: 1px;
+  height: 100%;
+  background: transparent;
+}
+.doc-table-col-resize:hover::after {
+  background: var(--accent);
 }
 .doc-table-th-wrap .doc-table-th {
   flex: 1;

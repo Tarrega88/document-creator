@@ -8,6 +8,7 @@ import type {
 import {
   DEFAULT_GLOBAL_STYLES,
   DEFAULT_MARGIN_HEIGHT,
+  DEFAULT_ORIENTATION,
   DEFAULT_SHEET_HEIGHT,
 } from '../data/palette'
 
@@ -21,6 +22,7 @@ export function exportJson(state: DocumentState): void {
     globalStyles: state.globalStyles,
     sheetHeight: state.sheetHeight,
     marginHeight: state.marginHeight,
+    orientation: state.orientation,
   }
   const blob = new Blob([JSON.stringify(file, null, 2)], { type: 'application/json' })
   const url = URL.createObjectURL(blob)
@@ -93,6 +95,10 @@ export function importJson(): Promise<DocumentFile> {
               typeof data.sheetHeight === 'number' ? data.sheetHeight : DEFAULT_SHEET_HEIGHT,
             marginHeight:
               typeof data.marginHeight === 'number' ? data.marginHeight : DEFAULT_MARGIN_HEIGHT,
+            orientation:
+              data.orientation === 'landscape' || data.orientation === 'portrait'
+                ? data.orientation
+                : DEFAULT_ORIENTATION,
           })
         } catch (err) {
           reject(err instanceof Error ? err : new Error('Failed to parse file'))

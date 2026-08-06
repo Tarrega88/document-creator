@@ -1,6 +1,7 @@
 import { useDroppable } from '@dnd-kit/core'
 import type { CSSProperties } from 'react'
 import { useDocument } from '../state/documentStore'
+import { PAGE_SHORT_EDGE } from '../data/palette'
 import type { DropData } from '../dnd/dragTypes'
 import { SectionList } from './SectionView'
 
@@ -9,9 +10,17 @@ export function Canvas() {
   const data: DropData = { kind: 'canvas-root' }
   const { setNodeRef, isOver } = useDroppable({ id: 'canvas-root', data })
 
+  // In landscape the sheet is rotated: its long edge (`sheetHeight`) becomes the
+  // page width and the fixed short edge becomes the page height (the page-break
+  // interval). Text still flows top to bottom in both orientations.
+  const isLandscape = state.orientation === 'landscape'
+  const pageWidth = isLandscape ? state.sheetHeight : PAGE_SHORT_EDGE
+  const pageHeight = isLandscape ? PAGE_SHORT_EDGE : state.sheetHeight
+
   const pageStyle = {
     ...state.globalStyles,
-    '--sheet-height': `${state.sheetHeight}mm`,
+    '--page-width': `${pageWidth}mm`,
+    '--sheet-height': `${pageHeight}mm`,
     '--page-margin': `${state.marginHeight}mm`,
   } as CSSProperties
 

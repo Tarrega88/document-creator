@@ -81,6 +81,22 @@ export function GlobalStyles() {
         />
       </label>
       <label className="field">
+        <span className="field-label">Orientation</span>
+        <select
+          className="input"
+          value={state.orientation}
+          onChange={(e) =>
+            dispatch({
+              type: 'UPDATE_ORIENTATION',
+              orientation: e.target.value === 'landscape' ? 'landscape' : 'portrait',
+            })
+          }
+        >
+          <option value="portrait">Portrait (tall)</option>
+          <option value="landscape">Landscape (wide)</option>
+        </select>
+      </label>
+      <label className="field">
         <span className="field-label">Sheet size</span>
         <select
           className="input"
@@ -99,7 +115,7 @@ export function GlobalStyles() {
         </select>
       </label>
       <label className="field">
-        <span className="field-label">Sheet height (mm)</span>
+        <span className="field-label">Sheet long edge (mm)</span>
         <input
           className="input"
           type="number"

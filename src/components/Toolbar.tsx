@@ -1,4 +1,5 @@
 import { useDocument } from '../state/documentStore'
+import { DEFAULT_ORIENTATION } from '../data/palette'
 import { exportJson, importJson } from '../utils/fileIo'
 
 export function Toolbar() {
@@ -15,6 +16,7 @@ export function Toolbar() {
         globalStyles: file.globalStyles,
         sheetHeight: file.sheetHeight,
         marginHeight: file.marginHeight,
+        orientation: file.orientation ?? DEFAULT_ORIENTATION,
       })
     } catch (err) {
       // User cancelled or gave an invalid file — surface it without crashing.

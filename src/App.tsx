@@ -297,7 +297,10 @@ function Workspace() {
  *  keeps page breaks at the same sheet-height boundaries in both views. */
 function PageRules() {
   const { state } = useDocument()
-  const css = `@page { size: 210mm ${state.sheetHeight}mm; margin: 0 20mm; }`
+  const isLandscape = state.orientation === 'landscape'
+  const width = isLandscape ? state.sheetHeight : 210
+  const height = isLandscape ? 210 : state.sheetHeight
+  const css = `@page { size: ${width}mm ${height}mm; margin: 0 20mm; }`
   return <style>{css}</style>
 }
 

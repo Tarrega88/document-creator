@@ -36,6 +36,14 @@ export const DEFAULT_SHEET_HEIGHT = 279
 /** Default top/bottom page margin in millimetres (0.75 inch). */
 export const DEFAULT_MARGIN_HEIGHT = 19.05
 
+/** Default page orientation. */
+export const DEFAULT_ORIENTATION = 'portrait' as const
+
+/** Fixed short edge of the sheet in millimetres (A4 width). In portrait this is
+ *  the page width; in landscape it becomes the page height (the page-break
+ *  interval). The long edge is driven by `sheetHeight`. */
+export const PAGE_SHORT_EDGE = 210
+
 /** Build a fresh section with sensible defaults for its type. */
 export function createSection(type: SectionType): Section {
   const base: Section = { id: uid(), type, content: '', src: '', styles: {}, children: [] }
